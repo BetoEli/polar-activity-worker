@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PAW SAML Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            background: rgb(245, 245, 245);
+        }
+        
+        h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        .section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgb(200, 200, 200);
+        }
+        
+        .section-title {
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        button, .btn {
+            background: rgb(70, 130, 180);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px 5px 5px 0;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        button:hover, .btn:hover {
+            background: rgb(50, 110, 160);
+        }
+        
+        .btn-logout {
+            background: rgb(220, 53, 69);
+        }
+        
+        .btn-logout:hover {
+            background: rgb(200, 35, 51);
+        }
+        
+        .status {
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid;
+        }
+        
+        .status-info {
+            background: rgb(217, 237, 247);
+            border-color: rgb(126, 197, 226);
+            color: rgb(31, 81, 109);
+        }
+        
+        .status-success {
+            background: rgb(212, 237, 218);
+            border-color: rgb(126, 194, 139);
+            color: rgb(21, 87, 36);
+        }
+        
+        .status-error {
+            background: rgb(248, 215, 218);
+            border-color: rgb(239, 83, 80);
+            color: rgb(114, 28, 36);
+        }
+        
+        .user-info {
+            background: rgb(248, 248, 248);
+            padding: 15px;
+            margin: 10px 0;
+            border: 1px solid rgb(220, 220, 220);
+        }
+        
+        .user-info p {
+            margin: 5px 0;
+        }
+        
+        .response-box {
+            background: rgb(40, 44, 52);
+            color: rgb(171, 178, 191);
+            padding: 15px;
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow: auto;
+            white-space: pre-wrap;
+        }
+        
+        .endpoint {
+            font-size: 11px;
+            color: rgb(108, 117, 125);
+            font-style: italic;
+            margin-top: 5px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>PAW SAML Test</h1>
+    <p>Physical Activity Workouts - Authentication Testing</p>
+    
+    <div id="status" class="status hidden"></div>
+    
+    <div class="section">
+        <div class="section-title">1. Authentication</div>
+        
+        <div id="notLoggedIn">
+            <a href="/auth/login" class="btn">Login with School Account</a>
+            <p class="endpoint">GET /auth/login</p>
+        </div>
+        
+        <div id="loggedIn" class="hidden">
+            <div class="user-info">
+                <p><strong>Name:</strong> <span id="userName"></span></p>
+                <p><strong>Email:</strong> <span id="userEmail"></span></p>
+                <p><strong>Role:</strong> <span id="userRole"></span></p>
+                <p><strong>User ID:</strong> <span id="userId"></span></p>
+            </div>
+            <button onclick="logout()" class="btn-logout">Logout</button>
+            <p class="endpoint">POST /auth/logout</p>
+        </div>
+    </div>
+    
+    <div class="section">
+        <div class="section-title">2. API Tests</div>
+        
+        <div>
+            <button onclick="testWebHealth()">Web Health</button>
+            <button onclick="testApiHealth()">API Health</button>
+            <button onclick="testWebMe()">Web /auth/me</button>
+            <button onclick="testApiMe()">API /me</button>
+        </div>
+        
+        <div id="response" class="response-box hidden"></div>
+    </div>
+    
+    <div class="section">
+        <div class="section-title">3. Cookies</div>
+        <button onclick="showCookies()">Show Cookies</button>
+        <div id="cookies" class="response-box hidden"></div>
+    </div>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', checkAuth);
+        
+        async function checkAuth() {
+            try {
+                const res = await fetch('/auth/me', { credentials: 'include' });
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('notLoggedIn').classList.add('hidden');
+                    document.getElementById('loggedIn').classList.remove('hidden');
+                    document.getElementById('userName').textContent = data.name || '-';
+                    document.getElementById('userEmail').textContent = data.email || '-';
+                    document.getElementById('userRole').textContent = data.role || '-';
+                    document.getElementById('userId').textContent = data.sub || '-';
+                    showStatus('Authenticated', 'success');
+                } else {
+                    showNotLoggedIn();
+                }
+            } catch (e) {
+                showNotLoggedIn();
+            }
+        }
+        
+        function showNotLoggedIn() {
+            document.getElementById('notLoggedIn').classList.remove('hidden');
+            document.getElementById('loggedIn').classList.add('hidden');
+            showStatus('Not authenticated', 'info');
+        }
+        
+        async function logout() {
+            try {
+                const res = await fetch('/auth/logout', { 
+                    method: 'POST', 
+                    credentials: 'include' 
+                });
+                if (res.ok) {
+                    showStatus('Logged out', 'success');
+                    setTimeout(showNotLoggedIn, 800);
+                }
+            } catch (e) {
+                showStatus('Logout failed: ' + e.message, 'error');
+            }
+        }
+        
+        async function testWebHealth() {
+            await test('/health', 'Web Health');
+        }
+        
+        async function testApiHealth() {
+            await test('http://localhost:5000/health', 'API Health');
+        }
+        
+        async function testWebMe() {
+            await test('/auth/me', 'Web /auth/me');
+        }
+        
+        async function testApiMe() {
+            await test('http://localhost:5000/me', 'API /me');
+        }
+        
+        async function test(url, label) {
+            const box = document.getElementById('response');
+            box.classList.remove('hidden');
+            box.textContent = 'Testing ' + label + '...';
+            
+            try {
+                const res = await fetch(url, { credentials: 'include' });
+                const data = await res.json();
+                box.textContent = label + '\nStatus: ' + res.status + '\n---\n' + 
+                    JSON.stringify(data, null, 2);
+                showStatus(label + ' - ' + (res.ok ? 'OK' : 'Failed'), res.ok ? 'success' : 'error');
+            } catch (e) {
+                box.textContent = label + '\nError: ' + e.message;
+                showStatus(label + ' - Error', 'error');
+            }
+        }
+        
+        function showCookies() {
+            const box = document.getElementById('cookies');
+            box.classList.remove('hidden');
+            const c = document.cookie;
+            if (!c) {
+                box.textContent = 'No cookies found';
+                return;
+            }
+            box.textContent = 'Cookies:\n' + c.split('; ').join('\n') + 
+                '\n\nNote: HttpOnly cookies (paw_at) are hidden for security';
+        }
+        
+        function showStatus(msg, type) {
+            const s = document.getElementById('status');
+            s.textContent = msg;
+            s.className = 'status status-' + type;
+        }
+    </script>
+</body>
+</html>
+

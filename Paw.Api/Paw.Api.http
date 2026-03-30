@@ -1,0 +1,99 @@
+@Paw.Api_HostAddress = http://localhost:5293
+
+# Setup Polar webhook (run once)
+POST {{Paw.Api_HostAddress}}/admin/polar/webhook/setup
+Content-Type: application/json
+
+###
+
+# Get webhook status
+GET {{Paw.Api_HostAddress}}/admin/polar/webhook/status
+Accept: application/json
+
+###
+
+# Test webhook endpoint (simulates Polar ping)
+POST {{Paw.Api_HostAddress}}/webhooks/polar
+Content-Type: application/json
+
+{}
+
+###
+
+# Test webhook with sample event
+POST {{Paw.Api_HostAddress}}/webhooks/polar
+Content-Type: application/json
+
+{
+  "event": "EXERCISE",
+  "user_id": 2278512,
+  "entity_id": "aQlC83",
+  "timestamp": "2025-11-20T14:22:24Z",
+  "url": "https://www.polaraccesslink.com/v3/exercises/aQlC83"
+}
+
+###
+
+# Get workout stats for current week
+GET {{Paw.Api_HostAddress}}/users/72f2739f-c0cb-11f0-9e2f-ce43d3f5f215/workout-stats
+Accept: application/json
+
+###
+
+# Get workout stats for specific week
+GET {{Paw.Api_HostAddress}}/users/72f2739f-c0cb-11f0-9e2f-ce43d3f5f215/workout-stats?weekContaining=2025-12-09
+Accept: application/json
+
+###
+
+# Fetch specific exercise by ID
+POST {{Paw.Api_HostAddress}}/admin/polar/fetch-exercise?entityId=PvgQnJd1&userId=72f2739f-c0cb-11f0-9e2f-ce43d3f5f215
+Content-Type: application/json
+
+###
+
+# ============================================================================
+# User Management Endpoints
+# ============================================================================
+
+# Get all users
+GET {{Paw.Api_HostAddress}}/api/users
+Accept: application/json
+
+###
+
+# Get user by ID
+GET {{Paw.Api_HostAddress}}/api/users/72f2739f-c0cb-11f0-9e2f-ce43d3f5f215
+Accept: application/json
+
+###
+
+# Create new user
+POST {{Paw.Api_HostAddress}}/api/users
+Content-Type: application/json
+
+{
+  "email": "john.doe@example.com",
+  "fullName": "John Doe",
+  "role": "Student"
+}
+
+###
+
+# Update user
+PUT {{Paw.Api_HostAddress}}/api/users/72f2739f-c0cb-11f0-9e2f-ce43d3f5f215
+Content-Type: application/json
+
+{
+  "email": "updated.email@example.com",
+  "fullName": "Updated Name",
+  "role": "Teacher"
+}
+
+###
+
+# Delete user
+DELETE {{Paw.Api_HostAddress}}/api/users/72f2739f-c0cb-11f0-9e2f-ce43d3f5f215
+
+###
+

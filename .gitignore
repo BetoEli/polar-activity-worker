@@ -1,0 +1,41 @@
+bin/
+obj/
+/packages/
+riderModule.iml
+/_ReSharper.Caches/
+
+# JetBrains Rider
+*.sln.iml
+.idea/
+_ReSharper.Caches/
+*.DotSettings
+*.DotSettings.user
+
+# Docker
+.dockerignore
+
+# Test Results and Coverage
+TestResults/
+**/TestResults/
+coverage/
+**/coverage/
+*.trx
+*.coverage
+*.coveragexml
+
+# Environment files with secrets
+.env
+.env.local
+*.env.production
+
+# Visual Studio
+/.vs
+/Paw.Api/appsettings.Development.json
+/Paw.Worker/appsettings.Development.json
+
+# Launch settings can contain environment variable overrides with secrets
+**/Properties/launchSettings.json
+
+# User secrets file
+secrets.json
+**/secrets.json

@@ -1,6 +1,6 @@
 # PAW — Polar Activity Worker
 
-[![CI](https://github.com/your-org/paw/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/paw/actions/workflows/ci.yml)
+[![CI](https://github.com/BetoEli/polar-activity-worker/actions/workflows/ci.yml/badge.svg)](https://github.com/BetoEli/polar-activity-worker/actions/workflows/ci.yml)
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/en-us/download/dotnet/8)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 

@@ -1,8 +1,10 @@
+using System.Net;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Polly;
 using Paw.Core.Domain;
 using Paw.Core.Services;
 using Paw.Infrastructure;
@@ -95,7 +97,26 @@ builder.Services.AddOptions<PolarOptions>()
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
-builder.Services.AddHttpClient<IPolarClient, PolarClient>();
+builder.Services.AddHttpClient<IPolarClient, PolarClient>()
+    .AddPolicyHandler((services, _) =>
+    {
+        var logger = services.GetRequiredService<ILogger<PolarClient>>();
+        return Policy<HttpResponseMessage>
+            .HandleResult(r => r.StatusCode is
+                HttpStatusCode.TooManyRequests or
+                HttpStatusCode.BadGateway or
+                HttpStatusCode.ServiceUnavailable or
+                HttpStatusCode.GatewayTimeout)
+            .WaitAndRetryAsync(
+                retryCount: 3,
+                sleepDurationProvider: retryAttempt =>
+                    TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))
+                    + TimeSpan.FromMilliseconds(Random.Shared.Next(0, 200)),
+                onRetry: (outcome, timespan, retryAttempt, _) =>
+                    logger.LogWarning(
+                        "Polar API transient error (Status={Status}). Retry {Attempt}/3 in {Delay:F1}s",
+                        outcome.Result?.StatusCode, retryAttempt, timespan.TotalSeconds));
+    });
 builder.Services.AddScoped<IActivitySyncService, ActivitySyncService>();
 builder.Services.AddScoped<IPolarWebhookVerifier, PolarWebhookVerifier>();
 builder.Services.AddScoped<IWorkoutStatsService, WorkoutStatsService>();

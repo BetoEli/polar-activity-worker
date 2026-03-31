@@ -81,9 +81,27 @@ builder.Services.AddCors(options =>
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
     options.AddFixedWindowLimiter("webhook", opt =>
     {
         opt.PermitLimit = 100;
+        opt.Window = TimeSpan.FromMinutes(1);
+    });
+
+    // Per-IP: prevent a single caller from hammering individual-user sync
+    options.AddPolicy("sync-user", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1)
+            }));
+
+    // Global: sync-all triggers Polar API calls for every user — keep it tight
+    options.AddFixedWindowLimiter("sync-all", opt =>
+    {
+        opt.PermitLimit = 3;
         opt.Window = TimeSpan.FromMinutes(1);
     });
 });

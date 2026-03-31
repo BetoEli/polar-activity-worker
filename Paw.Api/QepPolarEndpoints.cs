@@ -392,10 +392,12 @@ public static class QepPolarEndpoints
         .WithSummary("Run past 30-day exercise sync for a single Polar user")
         .WithDescription("Fetches exercises from Polar via GET /v3/exercises and upserts any missing ones into Activity/HeartRateZones. Requires X-QEP-API-Key header.")
         .RequireQepApiKey("QepFaculty", "QepAdministrator", "student")
+        .RequireRateLimiting("sync-user")
         .Produces(200)
         .Produces(400)
         .Produces(404)
-        .Produces(401);
+        .Produces(401)
+        .Produces(429);
 
         // POST /qep/polar/sync-all - Sync exercises for all active users
         group.MapPost("/sync-all", async (
@@ -421,8 +423,10 @@ public static class QepPolarEndpoints
         .WithSummary("Run past 30-day exercise sync for all active Polar users")
         .WithDescription("Processes up to ~1000 users with throttled concurrency (max 10 parallel). Requires X-QEP-API-Key header.")
         .RequireQepApiKey("QepFaculty", "QepAdministrator")
+        .RequireRateLimiting("sync-all")
         .Produces(200)
-        .Produces(401);
+        .Produces(401)
+        .Produces(429);
      }
 
     // Note: GetOrCreateUserGuidAsync is no longer needed for QEP flow

@@ -13,6 +13,7 @@
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
           <PrivateAssets>all</PrivateAssets>
         </PackageReference>
+        <PackageReference Include="AspNetCore.HealthChecks.UI.Client" Version="8.0.1" />
         <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="8.0.*" />
         <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.0" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />

@@ -1,9 +1,4 @@
-﻿/*
- * COMMENTED OUT - These tests use InMemory database instead of QEPTest database
- * Uncomment when InMemory tests are needed for unit testing
- */
-
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;

@@ -1,18 +1,31 @@
 using System.Net;
 using System.Threading.RateLimiting;
+using HealthChecks.UI.Client;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Polly;
+using Serilog;
+using Serilog.Formatting.Compact;
 using Paw.Core.Domain;
 using Paw.Core.Services;
 using Paw.Infrastructure;
+using Paw.Infrastructure.HealthChecks;
 using Paw.Polar;
 using Paw.Api;
 using Paw.Api.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((ctx, config) =>
+{
+    config
+        .ReadFrom.Configuration(ctx.Configuration)
+        .Enrich.FromLogContext()
+        .WriteTo.Console(new CompactJsonFormatter());
+});
 
 // Add services to the container.
 // Swagger/OpenAPI is only registered in Development (see middleware section below)
@@ -108,7 +121,8 @@ builder.Services.AddRateLimiter(options =>
 
 // Health checks
 builder.Services.AddHealthChecks()
-    .AddDbContextCheck<PawDbContext>();
+    .AddDbContextCheck<PawDbContext>()
+    .AddCheck<StuckWebhookHealthCheck>("stuck-webhooks");
 
 builder.Services.AddOptions<PolarOptions>()
     .Bind(builder.Configuration.GetSection("Polar"))
@@ -374,8 +388,11 @@ if (app.Environment.IsDevelopment())
         .ExcludeFromDescription();
 }
 
-// Health check endpoint (used by load balancers, orchestrators, uptime monitors)
-app.MapHealthChecks("/health");
+// Health check endpoint — returns structured JSON compatible with HealthChecks UI
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
 
 app.Run();
 

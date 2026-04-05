@@ -1,0 +1,34 @@
+@{ ViewData["Title"] = "Polar Connection"; }
+
+@{
+    var status = (string?)ViewBag.Status ?? "unknown";
+    var email = (string?)ViewBag.Email;
+    var message = (string?)ViewBag.Message;
+    var isSuccess = status == "success";
+    var isAlready = status == "already_connected";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm text-center p-4 mt-4">
+            @if (isSuccess || isAlready)
+            {
+                <div class="display-4 mb-3">✓</div>
+                <h4 class="text-success">@(isAlready ? "Already Connected" : "Polar Connected!")</h4>
+                @if (email != null)
+                {
+                    <p class="text-muted">Linked to <strong>@email</strong></p>
+                }
+                <p>@(isAlready ? "Your Polar account was already linked." : "Your Polar device is now linked and activities will sync automatically.")</p>
+            }
+            else
+            {
+                <div class="display-4 mb-3">✗</div>
+                <h4 class="text-danger">Connection Failed</h4>
+                <p class="text-muted">@(message ?? "An unexpected error occurred.")</p>
+            }
+
+            <a href="/Dashboard" class="btn btn-primary mt-2">Go to Dashboard</a>
+        </div>
+    </div>
+</div>

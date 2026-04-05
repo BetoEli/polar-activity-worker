@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Paw.Api.Authentication;
 using Paw.Core.Domain;
+using Paw.Core.DTOs;
 using Paw.Core.Services;
 using Paw.Infrastructure;
 using Paw.Polar;
@@ -310,6 +311,24 @@ public static class QepPolarEndpoints
         .Produces(400)
         .Produces(401);
 
+        // GET /qep/polar/link/by-person/{personId} - Get a PolarLink by QEP PersonID
+        // Must be registered before /link/{polarId:long} to avoid route ambiguity
+        group.MapGet("/link/by-person/{personId}", async (
+            [FromRoute] string personId,
+            PawDbContext db,
+            CancellationToken ct) =>
+        {
+            var link = await db.PolarLinks
+                .FirstOrDefaultAsync(p => p.PersonID == personId, ct);
+            return link is null ? Results.NotFound() : Results.Ok(link);
+        })
+        .WithName("GetPolarLinkByPersonId")
+        .WithSummary("Get a Polar link by QEP PersonID")
+        .RequireQepApiKey("student", "QepFaculty", "QepAdministrator")
+        .Produces<PolarLink>(200)
+        .Produces(404)
+        .Produces(401);
+
         // GET /qep/polar/link/{polarId} - Get a PolarLink by PolarID
         group.MapGet("/link/{polarId:long}", async (
             [FromRoute] long polarId,
@@ -427,6 +446,115 @@ public static class QepPolarEndpoints
         .Produces(200)
         .Produces(401)
         .Produces(429);
+        // GET /qep/polar/activities/{personId} - List recent activities for a student
+        group.MapGet("/activities/{personId}", async (
+            [FromRoute] string personId,
+            [FromQuery] int limit,
+            PawDbContext db,
+            CancellationToken ct) =>
+        {
+            if (limit <= 0) limit = 50;
+
+            var activities = await db.Activities
+                .Include(a => a.HeartRateZones)
+                .Where(a => a.UserID == personId)
+                .OrderByDescending(a => a.DateDone)
+                .Take(limit)
+                .ToListAsync(ct);
+
+            var result = activities.Select(a => new ActivityListItem
+            {
+                ActivityId = a.ActivityID,
+                EntityId = a.EntityID,
+                DateDone = a.DateDone,
+                Minutes = a.Minutes,
+                Distance = a.Distance,
+                AerobicPoints = a.AerobicPoints,
+                DeviceType = a.DeviceType,
+                TargetZone = a.TargetZone,
+                HeartRateZones = a.HeartRateZones.Select(z => new HeartRateZoneSummary
+                {
+                    Zone = z.Zone,
+                    DurationMinutes = z.Duration,
+                    Lower = z.Lower,
+                    Upper = z.Upper
+                }).ToList()
+            });
+
+            return Results.Ok(result);
+        })
+        .WithName("GetActivities")
+        .WithSummary("List recent activities for a student by PersonID")
+        .RequireQepApiKey("student", "QepFaculty", "QepAdministrator")
+        .Produces<IEnumerable<ActivityListItem>>(200)
+        .Produces(401);
+
+        // GET /qep/polar/stats/{personId} - Weekly workout stats for a student
+        group.MapGet("/stats/{personId}", async (
+            [FromRoute] string personId,
+            [FromQuery] string? weekOf,
+            PawDbContext db,
+            CancellationToken ct) =>
+        {
+            var pivot = weekOf != null
+                ? DateTime.Parse(weekOf, null, System.Globalization.DateTimeStyles.RoundtripKind)
+                : DateTime.Today;
+            var weekStart = pivot.AddDays(-(int)pivot.DayOfWeek); // Sunday
+            var weekEnd = weekStart.AddDays(7);
+
+            var activities = await db.Activities
+                .Include(a => a.HeartRateZones)
+                .Where(a => a.UserID == personId && a.DateDone >= weekStart && a.DateDone < weekEnd)
+                .ToListAsync(ct);
+
+            var days = activities
+                .GroupBy(a => a.DateDone?.Date ?? DateTime.MinValue)
+                .OrderBy(g => g.Key)
+                .Select(g =>
+                {
+                    var daySummaries = g.Select(a => new ActivitySummary
+                    {
+                        ActivityId = a.ActivityID,
+                        SportType = a.DeviceType ?? "Unknown",
+                        StartTime = a.DateDone ?? DateTime.MinValue,
+                        DurationMinutes = a.Minutes ?? 0,
+                        Qualifies = (a.Minutes ?? 0) >= 20,
+                        HeartRateZoneMinutes = a.HeartRateZones?.Sum(z => (int)(z.Duration ?? 0)) ?? 0,
+                        ZoneBreakdown = a.HeartRateZones?.Count > 0 ? new HeartRateZoneBreakdown
+                        {
+                            Zone1Minutes = (int)(a.HeartRateZones.FirstOrDefault(z => z.Zone == 1)?.Duration ?? 0),
+                            Zone2Minutes = (int)(a.HeartRateZones.FirstOrDefault(z => z.Zone == 2)?.Duration ?? 0),
+                            Zone3Minutes = (int)(a.HeartRateZones.FirstOrDefault(z => z.Zone == 3)?.Duration ?? 0),
+                            Zone4Minutes = (int)(a.HeartRateZones.FirstOrDefault(z => z.Zone == 4)?.Duration ?? 0),
+                            Zone5Minutes = (int)(a.HeartRateZones.FirstOrDefault(z => z.Zone == 5)?.Duration ?? 0),
+                        } : null
+                    }).ToList();
+
+                    return new WorkoutDaySummary
+                    {
+                        Date = g.Key,
+                        Activities = daySummaries,
+                        TotalWorkoutMinutes = daySummaries.Sum(s => s.DurationMinutes),
+                        QualifyingMinutes = daySummaries.Where(s => s.Qualifies).Sum(s => s.DurationMinutes),
+                        HasQualifyingWorkout = daySummaries.Any(s => s.Qualifies)
+                    };
+                }).ToList();
+
+            var stats = new WorkoutWeekStats
+            {
+                WeekStartDate = weekStart,
+                WeekEndDate = weekEnd.AddDays(-1),
+                QualifyingWorkoutDays = days.Count(d => d.HasQualifyingWorkout),
+                Days = days
+            };
+
+            return Results.Ok(stats);
+        })
+        .WithName("GetWeekStats")
+        .WithSummary("Weekly workout stats for a student by PersonID")
+        .RequireQepApiKey("student", "QepFaculty", "QepAdministrator")
+        .Produces<WorkoutWeekStats>(200)
+        .Produces(401);
      }
 
     // Note: GetOrCreateUserGuidAsync is no longer needed for QEP flow

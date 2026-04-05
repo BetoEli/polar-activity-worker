@@ -1,0 +1,106 @@
+@model DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+    ViewBag.HasPolarLinked = Model.HasPolarLinked;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-0">Welcome, @Model.PersonId</h4>
+        <small class="text-muted">@Model.Email</small>
+    </div>
+    @if (!Model.HasPolarLinked)
+    {
+        <a href="/Polar/Connect" class="btn btn-warning btn-sm">Connect Polar Device</a>
+    }
+    else
+    {
+        <span class="badge bg-success">Polar Connected</span>
+    }
+</div>
+
+@* Week Stats Card *@
+<div class="card mb-4">
+    <div class="card-header">This Week's Progress</div>
+    <div class="card-body">
+        @if (Model.WeekStats != null)
+        {
+            var stats = Model.WeekStats;
+            <div class="d-flex align-items-center gap-3 mb-3">
+                <div class="display-6 fw-bold text-primary">@stats.QualifyingWorkoutDays / @stats.TargetDays</div>
+                <div class="text-muted">qualifying workout days<br /><small>@stats.WeekStartDate.ToString("MMM d") – @stats.WeekEndDate.ToString("MMM d, yyyy")</small></div>
+            </div>
+            <div class="d-flex gap-1">
+                @for (int i = 0; i < 7; i++)
+                {
+                    var day = stats.Days.FirstOrDefault(d => (int)(d.Date.DayOfWeek) == i);
+                    var qualified = day?.HasQualifyingWorkout == true;
+                    <div class="rounded text-center flex-fill py-2 @(qualified ? "bg-success text-white" : "bg-light text-muted")" style="font-size:.75rem">
+                        @System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedDayName((DayOfWeek)i)
+                        @if (day != null) { <br /><small>@day.TotalWorkoutMinutes min</small> }
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <p class="text-muted mb-0">No data available. @(Model.HasPolarLinked ? "Try syncing your device." : "Connect your Polar device to get started.")</p>
+        }
+    </div>
+</div>
+
+@* Activity Table *@
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Recent Activities</span>
+        <small class="text-muted">Last 50</small>
+    </div>
+    <div class="card-body p-0">
+        @if (Model.RecentActivities.Count == 0)
+        {
+            <p class="text-muted p-3 mb-0">No activities found.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th>Duration</th>
+                            <th>Distance</th>
+                            <th>Aerobic Pts</th>
+                            <th>HR Zones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var a in Model.RecentActivities)
+                        {
+                            <tr>
+                                <td>@(a.DateDone?.ToString("MMM d, yyyy") ?? "—")</td>
+                                <td>@(a.Minutes.HasValue ? $"{a.Minutes} min" : "—")</td>
+                                <td>@(a.Distance.HasValue ? $"{a.Distance / 1000:F2} km" : "—")</td>
+                                <td>@(a.AerobicPoints?.ToString() ?? "—")</td>
+                                <td>
+                                    @if (a.HeartRateZones.Count > 0)
+                                    {
+                                        <div class="d-flex gap-1">
+                                            @foreach (var z in a.HeartRateZones.OrderBy(z => z.Zone))
+                                            {
+                                                <span class="badge bg-secondary" title="Z@(z.Zone): @(z.Lower)-@(z.Upper) bpm">Z@(z.Zone) @(z.DurationMinutes.HasValue ? $"{z.DurationMinutes:F0}m" : "")</span>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

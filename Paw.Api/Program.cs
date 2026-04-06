@@ -172,6 +172,16 @@ if (app.Environment.IsDevelopment())
 
 
 // Configure middleware
+app.UseSerilogRequestLogging(opts =>
+{
+    // Enrich each request log with the matched route template (e.g. /qep/polar/sync/{polarId:long})
+    // so logs are groupable by route rather than by specific IDs.
+    opts.EnrichDiagnosticContext = (diag, ctx) =>
+    {
+        diag.Set("RouteTemplate", ctx.GetEndpoint()?.DisplayName ?? "unknown");
+        diag.Set("RequestHost", ctx.Request.Host.Value);
+    };
+});
 app.UseCors();
 app.UseRateLimiter();
 

@@ -207,17 +207,20 @@ public class ActivitySyncService : IActivitySyncService
 
     public async Task<int> ProcessPendingPolarWebhookEventsBatchAsync(int maxBatchSize, CancellationToken cancellationToken = default)
     {
+        const int maxRetries = 5;
+
+        var now = DateTime.UtcNow;
         var pending = await _db.WebhookEvents
-            .Where(w => w.Provider == ActivityProviderType.Polar && w.Status == "Pending")
+            .Where(w => w.Provider == ActivityProviderType.Polar
+                     && w.Status == "Pending"
+                     && (w.NextRetryAt == null || w.NextRetryAt <= now))
             .OrderBy(w => w.ReceivedAtUtc)
             .Take(maxBatchSize)
             .Select(w => w.Id)
             .ToListAsync(cancellationToken);
 
         if (pending.Count == 0)
-        {
             return 0;
-        }
 
         _logger.LogInformation("Processing batch of {Count} pending Polar webhook events", pending.Count);
 
@@ -233,7 +236,27 @@ public class ActivitySyncService : IActivitySyncService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing webhook event {Id} in batch", id);
-                // Continue with next event
+
+                var evt = await _db.WebhookEvents.FindAsync(new object[] { id }, cancellationToken);
+                if (evt is null) continue;
+
+                evt.RetryCount++;
+                evt.ErrorMessage = ex.Message;
+
+                if (evt.RetryCount >= maxRetries)
+                {
+                    evt.Status = "Failed";
+                    _logger.LogWarning("Webhook event {Id} marked Failed after {Retries} attempts", id, evt.RetryCount);
+                }
+                else
+                {
+                    // Exponential backoff: 30s, 2m, 8m, 30m
+                    evt.NextRetryAt = DateTime.UtcNow.AddSeconds(Math.Pow(4, evt.RetryCount) * 30);
+                    _logger.LogWarning("Webhook event {Id} will retry at {NextRetryAt} (attempt {Attempt}/{Max})",
+                        id, evt.NextRetryAt, evt.RetryCount, maxRetries);
+                }
+
+                await _db.SaveChangesAsync(cancellationToken);
             }
         }
 

@@ -28,7 +28,9 @@ public class WebhookEvent
    
    public string Status { get; set; } = "Pending"; // Pending, Processing, Completed, Failed
    public string? ErrorMessage { get; set; }
-   
+   public int RetryCount { get; set; } = 0;
+   public DateTime? NextRetryAt { get; set; }
+
    public DateTime ReceivedAtUtc { get; set; }
    public DateTime? ProcessedAtUtc { get; set; }
    

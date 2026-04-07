@@ -1,106 +1,120 @@
 @model DashboardViewModel
+@using System.Globalization
 @{
     ViewData["Title"] = "Dashboard";
     ViewBag.HasPolarLinked = Model.HasPolarLinked;
+
+    var totalMinutes = Model.WeekStats?.Days.Sum(d => d.TotalWorkoutMinutes) ?? 0;
+    var activeDays = Model.WeekStats?.Days.Count(d => d.TotalWorkoutMinutes > 0) ?? 0;
+    var totalDistanceMeters = Model.RecentActivities
+        .Where(a => a.DateDone >= (Model.WeekStats?.WeekStartDate ?? DateTime.MinValue)
+                 && a.DateDone < (Model.WeekStats?.WeekEndDate ?? DateTime.MaxValue)
+                 && a.Distance.HasValue)
+        .Sum(a => a.Distance!.Value);
+    var totalMiles = totalDistanceMeters / 1609.344;
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h4 class="mb-0">Welcome, @Model.PersonId</h4>
-        <small class="text-muted">@Model.Email</small>
+@* Connect banner — shown when Polar not linked *@
+@if (!Model.HasPolarLinked)
+{
+    <div class="connect-banner mb-4">
+        <p>Connect your Polar device to start syncing workouts.</p>
+        <a href="/Polar/Connect" class="btn btn-primary btn-sm text-nowrap">Connect Polar</a>
     </div>
-    @if (!Model.HasPolarLinked)
+}
+
+@* Header *@
+<div class="mb-4">
+    <h5 class="fw-semibold mb-0">Hi, @Model.DisplayName</h5>
+    <p class="text-muted mb-0" style="font-size:.85rem">Here's your activity this week.</p>
+</div>
+
+@* Week stat cards *@
+<div class="row g-3 mb-4">
+    <div class="col-4">
+        <div class="card p-3 text-center">
+            <div class="stat-value">@activeDays</div>
+            <div class="stat-label">Active days</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="card p-3 text-center">
+            <div class="stat-value">@totalMinutes</div>
+            <div class="stat-label">Minutes</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="card p-3 text-center">
+            <div class="stat-value">@(totalDistanceMeters > 0 ? $"{totalMiles:F1}" : "—")</div>
+            <div class="stat-label">Miles</div>
+        </div>
+    </div>
+</div>
+
+@* Weekly day strip *@
+@if (Model.WeekStats != null)
+{
+    <div class="card p-3 mb-4">
+        <div class="d-flex gap-1">
+            @for (int i = 0; i < 7; i++)
+            {
+                var day = Model.WeekStats.Days.FirstOrDefault(d => (int)d.Date.DayOfWeek == i);
+                var hasActivity = day?.TotalWorkoutMinutes > 0;
+                <div class="flex-fill text-center rounded-2 py-2"
+                     style="font-size:.72rem; background:@(hasActivity ? "#d5001c" : "#f2f2f2"); color:@(hasActivity ? "#fff" : "#aaa")">
+                    @CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedDayName((DayOfWeek)i).Substring(0, 1)
+                    @if (day != null && day.TotalWorkoutMinutes > 0)
+                    {
+                        <br /><span style="font-size:.65rem">@day.TotalWorkoutMinutes m</span>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@* Recent workouts *@
+<div class="section-title">Recent Workouts</div>
+
+<div class="card px-3">
+    @if (Model.RecentActivities.Count == 0)
     {
-        <a href="/Polar/Connect" class="btn btn-warning btn-sm">Connect Polar Device</a>
+        <p class="text-muted py-4 mb-0 text-center" style="font-size:.9rem">
+            No workouts yet.@(Model.HasPolarLinked ? " Sync your Polar device." : " Connect your Polar device to get started.")
+        </p>
     }
     else
     {
-        <span class="badge bg-success">Polar Connected</span>
-    }
-</div>
-
-@* Week Stats Card *@
-<div class="card mb-4">
-    <div class="card-header">This Week's Progress</div>
-    <div class="card-body">
-        @if (Model.WeekStats != null)
+        @foreach (var a in Model.RecentActivities)
         {
-            var stats = Model.WeekStats;
-            <div class="d-flex align-items-center gap-3 mb-3">
-                <div class="display-6 fw-bold text-primary">@stats.QualifyingWorkoutDays / @stats.TargetDays</div>
-                <div class="text-muted">qualifying workout days<br /><small>@stats.WeekStartDate.ToString("MMM d") – @stats.WeekEndDate.ToString("MMM d, yyyy")</small></div>
-            </div>
-            <div class="d-flex gap-1">
-                @for (int i = 0; i < 7; i++)
-                {
-                    var day = stats.Days.FirstOrDefault(d => (int)(d.Date.DayOfWeek) == i);
-                    var qualified = day?.HasQualifyingWorkout == true;
-                    <div class="rounded text-center flex-fill py-2 @(qualified ? "bg-success text-white" : "bg-light text-muted")" style="font-size:.75rem">
-                        @System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedDayName((DayOfWeek)i)
-                        @if (day != null) { <br /><small>@day.TotalWorkoutMinutes min</small> }
-                    </div>
-                }
-            </div>
-        }
-        else
-        {
-            <p class="text-muted mb-0">No data available. @(Model.HasPolarLinked ? "Try syncing your device." : "Connect your Polar device to get started.")</p>
-        }
-    </div>
-</div>
-
-@* Activity Table *@
-<div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <span>Recent Activities</span>
-        <small class="text-muted">Last 50</small>
-    </div>
-    <div class="card-body p-0">
-        @if (Model.RecentActivities.Count == 0)
-        {
-            <p class="text-muted p-3 mb-0">No activities found.</p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-sm table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Date</th>
-                            <th>Duration</th>
-                            <th>Distance</th>
-                            <th>Aerobic Pts</th>
-                            <th>HR Zones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var a in Model.RecentActivities)
+            var distMiles = a.Distance.HasValue ? a.Distance.Value / 1609.344 : (double?)null;
+            <div class="activity-row d-flex align-items-center justify-content-between">
+                <div style="min-width:90px">
+                    <div style="font-size:.82rem; font-weight:600">@(a.DateDone?.ToString("MMM d") ?? "—")</div>
+                    <div style="font-size:.75rem; color:#aaa">@(a.DateDone?.ToString("yyyy") ?? "")</div>
+                </div>
+                <div class="flex-fill px-3">
+                    <span style="font-size:.88rem">
+                        @(a.Minutes.HasValue ? $"{a.Minutes} min" : "—")
+                        @if (distMiles.HasValue)
                         {
-                            <tr>
-                                <td>@(a.DateDone?.ToString("MMM d, yyyy") ?? "—")</td>
-                                <td>@(a.Minutes.HasValue ? $"{a.Minutes} min" : "—")</td>
-                                <td>@(a.Distance.HasValue ? $"{a.Distance / 1000:F2} km" : "—")</td>
-                                <td>@(a.AerobicPoints?.ToString() ?? "—")</td>
-                                <td>
-                                    @if (a.HeartRateZones.Count > 0)
-                                    {
-                                        <div class="d-flex gap-1">
-                                            @foreach (var z in a.HeartRateZones.OrderBy(z => z.Zone))
-                                            {
-                                                <span class="badge bg-secondary" title="Z@(z.Zone): @(z.Lower)-@(z.Upper) bpm">Z@(z.Zone) @(z.DurationMinutes.HasValue ? $"{z.DurationMinutes:F0}m" : "")</span>
-                                            }
-                                        </div>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted">—</span>
-                                    }
-                                </td>
-                            </tr>
+                            <span class="text-muted"> · @($"{distMiles:F2}") mi</span>
                         }
-                    </tbody>
-                </table>
+                    </span>
+                </div>
+                <div class="text-end" style="min-width:120px">
+                    @if (a.AerobicPoints.HasValue && a.AerobicPoints > 0)
+                    {
+                        <span style="font-size:.75rem; color:#999; margin-right:.4rem">@a.AerobicPoints pts</span>
+                    }
+                    @foreach (var z in a.HeartRateZones.OrderBy(z => z.Zone))
+                    {
+                        <span class="badge-zone" title="Z@(z.Zone): @(z.Lower)–@(z.Upper) bpm">
+                            Z@(z.Zone)@(z.DurationMinutes.HasValue ? $" {z.DurationMinutes:F0}m" : "")
+                        </span>
+                    }
+                </div>
             </div>
         }
-    </div>
+    }
 </div>

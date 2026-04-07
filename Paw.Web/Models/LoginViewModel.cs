@@ -4,9 +4,6 @@ namespace Paw.Web.Models;
 
 public class LoginViewModel
 {
-    [Required(ErrorMessage = "Person ID is required")]
-    public string PersonId { get; set; } = "";
-
     [Required(ErrorMessage = "Email is required")]
     [EmailAddress(ErrorMessage = "Enter a valid email address")]
     public string Email { get; set; } = "";

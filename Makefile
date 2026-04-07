@@ -61,8 +61,9 @@ help:
 	@echo "  make ef-migrations      List migrations"
 	@echo "  make ef-add-mig n=Name  Add migration"
 	@echo "  make ef-update-db       Apply migrations"
-	@echo "  make docker-up          Start MySQL (docker-compose)"
-	@echo "  make docker-down        Stop MySQL (docker-compose)"
+	@echo "  make docker-up          Start SQL Server (docker-compose)"
+	@echo "  make docker-down        Stop SQL Server (docker-compose)"
+	@echo "  make db-setup           docker-up + wait + ef-update-db (first-time setup)"
 
 restore:
 	dotnet restore $(SOLUTION)
@@ -176,14 +177,20 @@ ef-update-db:
 # ============================================================================
 
 docker-up:
-	@echo "Starting Docker services (MySQL, Adminer)..."
+	@echo "Starting Docker services (SQL Server, Adminer)..."
 	@docker compose up -d
-	@echo "MySQL running on localhost:3307"
+	@echo "SQL Server running on localhost,1433"
 	@echo "Adminer running on http://localhost:8080"
 
 docker-down:
 	@echo "Stopping Docker services..."
 	@docker compose down
+
+db-setup: docker-up
+	@echo "Waiting 20s for SQL Server to accept connections..."
+	@sleep 20
+	@$(MAKE) ef-update-db
+	@echo "Database ready."
 
 docker-logs:
 	docker compose logs -f
@@ -200,5 +207,5 @@ clean-test-results:
         test test-all test-sync test-webhook test-worker test-endpoints test-integration test-unit \
         test-watch test-verbose test-quick test-coverage \
         ef-migrations ef-add-mig ef-update-db \
-        docker-up docker-down docker-logs clean-test-results
+        docker-up docker-down docker-logs db-setup clean-test-results
 

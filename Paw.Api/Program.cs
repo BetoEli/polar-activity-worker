@@ -16,6 +16,7 @@ using Paw.Infrastructure.HealthChecks;
 using Paw.Polar;
 using Paw.Api;
 using Paw.Api.Authentication;
+using Paw.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -172,6 +173,7 @@ if (app.Environment.IsDevelopment())
 
 
 // Configure middleware
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseSerilogRequestLogging(opts =>
 {
     // Enrich each request log with the matched route template (e.g. /qep/polar/sync/{polarId:long})
@@ -180,6 +182,7 @@ app.UseSerilogRequestLogging(opts =>
     {
         diag.Set("RouteTemplate", ctx.GetEndpoint()?.DisplayName ?? "unknown");
         diag.Set("RequestHost", ctx.Request.Host.Value);
+        diag.Set("CorrelationId", ctx.Items["CorrelationId"]?.ToString() ?? "");
     };
 });
 app.UseCors();

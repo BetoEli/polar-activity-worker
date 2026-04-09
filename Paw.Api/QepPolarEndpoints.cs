@@ -555,6 +555,47 @@ public static class QepPolarEndpoints
         .RequireQepApiKey("student", "QepFaculty", "QepAdministrator")
         .Produces<WorkoutWeekStats>(200)
         .Produces(401);
+
+        // GET /qep/polar/sync-history/{personId} - Recent webhook processing history for a user
+        group.MapGet("/sync-history/{personId}", async (
+            [FromRoute] string personId,
+            [FromQuery] int? limit,
+            PawDbContext db,
+            CancellationToken ct) =>
+        {
+            var take = (limit is null or <= 0) ? 20 : limit.Value;
+
+            var link = await db.PolarLinks
+                .FirstOrDefaultAsync(p => p.PersonID == personId, ct);
+
+            if (link is null)
+                return Results.NotFound(new { message = $"No Polar link found for personId '{personId}'" });
+
+            var events = await db.WebhookEvents
+                .Where(e => e.ExternalUserId == link.PolarID)
+                .OrderByDescending(e => e.ReceivedAtUtc)
+                .Take(take)
+                .Select(e => new WebhookEventSummary
+                {
+                    Id = e.Id,
+                    EventType = e.EventType,
+                    EntityId = e.EntityID,
+                    Status = e.Status,
+                    ReceivedAtUtc = e.ReceivedAtUtc,
+                    ProcessedAtUtc = e.ProcessedAtUtc,
+                    RetryCount = e.RetryCount,
+                    ErrorMessage = e.ErrorMessage
+                })
+                .ToListAsync(ct);
+
+            return Results.Ok(events);
+        })
+        .WithName("GetSyncHistory")
+        .WithSummary("Recent webhook processing history for a user by PersonID")
+        .RequireQepApiKey("student", "QepFaculty", "QepAdministrator")
+        .Produces<IEnumerable<WebhookEventSummary>>(200)
+        .Produces(404)
+        .Produces(401);
      }
 
     // Note: GetOrCreateUserGuidAsync is no longer needed for QEP flow

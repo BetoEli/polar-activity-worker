@@ -26,25 +26,23 @@ public class AccountController(IConfiguration config) : Controller
         if (!ModelState.IsValid)
             return View(model);
 
-        var expectedPersonId = config["DevLogin:PersonId"];
-        var expectedEmail = config["DevLogin:Email"];
-
-        if (model.PersonId != expectedPersonId || model.Email != expectedEmail)
+        if (model.Email != config["DevLogin:Email"])
         {
-            ModelState.AddModelError(string.Empty, "Invalid credentials.");
+            ModelState.AddModelError(string.Empty, "Invalid email.");
             return View(model);
         }
 
+        // PersonId is an internal identifier — resolved from config, never shown in the UI
+        var personId = config["DevLogin:PersonId"] ?? "";
+
         var claims = new List<Claim>
         {
-            new(ClaimTypes.NameIdentifier, model.PersonId),
+            new(ClaimTypes.NameIdentifier, personId),
             new(ClaimTypes.Email, model.Email),
         };
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        var principal = new ClaimsPrincipal(identity);
-
-        await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
+        await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
 
         return Redirect(model.ReturnUrl ?? "/Dashboard");
     }

@@ -4,31 +4,32 @@
     var status = (string?)ViewBag.Status ?? "unknown";
     var email = (string?)ViewBag.Email;
     var message = (string?)ViewBag.Message;
-    var isSuccess = status == "success";
-    var isAlready = status == "already_connected";
+    var isSuccess = status is "success" or "already_connected";
 }
 
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card shadow-sm text-center p-4 mt-4">
-            @if (isSuccess || isAlready)
+<div class="d-flex align-items-center justify-content-center" style="min-height:60vh">
+    <div class="card p-5 text-center" style="max-width:380px;width:100%">
+        @if (isSuccess)
+        {
+            <div style="font-size:2.5rem;margin-bottom:1rem">✓</div>
+            <h5 class="fw-semibold mb-1">@(status == "already_connected" ? "Already connected" : "Polar connected!")</h5>
+            @if (email != null)
             {
-                <div class="display-4 mb-3">✓</div>
-                <h4 class="text-success">@(isAlready ? "Already Connected" : "Polar Connected!")</h4>
-                @if (email != null)
-                {
-                    <p class="text-muted">Linked to <strong>@email</strong></p>
-                }
-                <p>@(isAlready ? "Your Polar account was already linked." : "Your Polar device is now linked and activities will sync automatically.")</p>
+                <p class="text-muted mb-1" style="font-size:.88rem">Linked to <strong>@email</strong></p>
             }
-            else
-            {
-                <div class="display-4 mb-3">✗</div>
-                <h4 class="text-danger">Connection Failed</h4>
-                <p class="text-muted">@(message ?? "An unexpected error occurred.")</p>
-            }
+            <p class="text-muted mb-4" style="font-size:.88rem">Your workouts will sync automatically.</p>
+        }
+        else
+        {
+            <div style="font-size:2.5rem;margin-bottom:1rem;color:#d5001c">✗</div>
+            <h5 class="fw-semibold mb-1">Connection failed</h5>
+            <p class="text-muted mb-4" style="font-size:.88rem">@(message ?? "An unexpected error occurred.")</p>
+        }
 
-            <a href="/Dashboard" class="btn btn-primary mt-2">Go to Dashboard</a>
-        </div>
+        <a href="/Dashboard" class="btn btn-primary w-100">Go to Dashboard</a>
+        @if (!isSuccess)
+        {
+            <a href="/Polar/Connect" class="btn btn-link mt-2" style="font-size:.88rem;color:#d5001c">Try again</a>
+        }
     </div>
 </div>

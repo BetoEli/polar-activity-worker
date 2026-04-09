@@ -12,7 +12,7 @@ public class DashboardController(PawApiClient api) : Controller
 {
     [HttpGet]
     [Route("")]
-    [Route("~/")]  // also handle root "/"
+    [Route("~/")]
     public async Task<IActionResult> Index(CancellationToken ct)
     {
         var personId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "";
@@ -26,8 +26,7 @@ public class DashboardController(PawApiClient api) : Controller
 
         var vm = new DashboardViewModel
         {
-            PersonId = personId,
-            Email = email,
+            DisplayName = email.Contains('@') ? email[..email.IndexOf('@')] : email,
             RecentActivities = await activitiesTask,
             WeekStats = await statsTask,
             HasPolarLinked = await linkedTask,
